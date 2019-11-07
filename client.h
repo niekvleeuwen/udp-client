@@ -2,6 +2,8 @@
     Author: Niek van Leeuwen
     Date:   07-11-2019
 */
+
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <netinet/in.h>
 #include <stdbool.h>
