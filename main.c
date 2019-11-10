@@ -3,31 +3,31 @@
     Date:   07-11-2019
 */
 #include "client.h"
+#include <sensordata.h>
 
-#define BUFSIZE 512
-#define MAXSERVERNAME 100
+int send_packet(FILE *, int, struct sockaddr * ,socklen_t, int interval);
 
-int send_packet(FILE *, int, struct sockaddr * ,socklen_t);
-
-int main(int argc, char *argv[] )
+int main(int argc, char *argv[])
 {
-	int	sockfd, ret, portno;
-	char* server_ip = DEFAULT_SERVER_IP;
-	struct	sockaddr_in serveraddress;
+	int	sockfd, ret, portno, interval;
+	char* server_ip;
+	struct sockaddr_in serveraddress;
 
-	// size of the buffer
-    int buffersize = DEFAULT_BUFFERSIZE;
-
-	// portnumber defined in client.h 
-    portno = atoi(DEFAULT_PORT);
+	//default values defined in client.h
+	server_ip = DEFAULT_SERVER_IP;
+    interval = DEFAULT_INTERVAL;
+    portno = DEFAULT_PORT;
 
     // handle the arguments
     for (int i = 0; i < argc; i++) {
         // the user wants to use another port than the default one
         if (!strcmp(argv[i], "-p") || !strcmp(argv[i], "--port")){
-			// check if the argument is a number
-            if (isdigit(argv[i+1])){ 
-                portno = atoi(argv[i+1]);
+			// check if the argument is a digit
+			if(isNumber(argv[i+1])){
+            	portno = atoi(argv[i+1]);
+			}else{
+				printf("The Port number provided is not correct!\n");
+				exit(1);
 			}
 		}
 
@@ -36,14 +36,20 @@ int main(int argc, char *argv[] )
 			// check if the argument is a valid IP Adress
 			if(isValidIpAddress(argv[i+1])){
            		server_ip = argv[i+1];
+			}else{
+				printf("The IP Address provided is not correct!\n");
+				exit(1);
 			}
 		}
 
 		// the user wants another buffersize
-        if (!strcmp(argv[i], "-bs") || !strcmp(argv[i], "--buffersize")){
-			// check if the argument is a number
-            if (isdigit(argv[i+1])){
-                buffersize = htons(atoi(argv[i+1]));
+        if (!strcmp(argv[i], "-i") || !strcmp(argv[i], "--interval")){
+			// check if the argument is a digit
+            if (isNumber(argv[i+1])){
+                interval = atoi(argv[i+1]);
+			}else{
+				printf("The interval provided is not correct!\n");
+				exit(1);
 			}
 		}
 
@@ -54,25 +60,29 @@ int main(int argc, char *argv[] )
     }
 
     // print the startup message
-    startup_message(server_ip, portno, buffersize);
+    startup_message(server_ip, portno, interval);
 
-	sockfd = socket( AF_INET, SOCK_DGRAM, 0 );
-	if(0 > sockfd ) 
+	//convert from milliseconds to seconds
+	interval = interval / 1000; 
+
+	// create a socket
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if(0 > sockfd) 
 	{
-		perror( "socket" );
-		exit (1);
+		perror("socket");
+		exit(1);
 	}
 	
-	memset( &serveraddress, 0, sizeof(serveraddress) );
+	memset(&serveraddress, 0, sizeof(serveraddress));
+
 	serveraddress.sin_family = AF_INET;
 	serveraddress.sin_port = htons(portno);
 	serveraddress.sin_addr.s_addr = inet_addr(server_ip);
 	
-	printf("Client Starting service\n");
+	printf("Client Starting service...\n");
 
-	ret = send_packet(stdin,sockfd ,(struct sockaddr *)&serveraddress,
-			sizeof(serveraddress));
-	if (0 > ret)
+	ret = send_packet(stdin,sockfd ,(struct sockaddr *)&serveraddress, sizeof(serveraddress), interval);
+	if (ret < 0)
 	{
 		printf("Client Exiting - Some error occured\n");
 		close(sockfd);
@@ -82,46 +92,29 @@ int main(int argc, char *argv[] )
 	exit(0);
 }
 
-int send_packet(FILE *fp, int sockfd , struct sockaddr *to ,socklen_t length)
+int send_packet(FILE *fp, int sockfd , struct sockaddr *to ,socklen_t servaddrlength, int interval)
 {
-	char sendbuf[BUFSIZE], recvbuf[BUFSIZE],servername[MAXSERVERNAME];
-	char *cptr;
-	int ret, numbytes, slen;
-	socklen_t structlen;
-	struct sockaddr_in serveraddr;
-	
-	for(;;)
+	int ret;
+	SENSOR_DATA sensordata;
+
+	int i = 0;
+	while(true)
 	{
-		
-		printf("Enter Data For the server or press CTRL-D to exit\n");
-		// reading data from the keyboard
-		cptr = fgets(sendbuf,BUFSIZE,fp);
-		if (NULL == cptr)
-		{
-			printf("Possible error or end of file\n");
-			return 0;
-		}
-		slen = strlen (sendbuf);
+		//updating the struct
+		sensordata.potix_return = i;
+		sensordata.potiy_return = i * -1;		
+		sensordata.packets_sent = i;
 		// sending the read data over socket
-		ret = sendto(sockfd,sendbuf,slen,0,to,length);
+		ret = sendto(sockfd, (void *)&sensordata, sizeof(sensordata), 0, to, servaddrlength);
 		if (0 > ret)
 		{
 			perror("Error in sending data:\n");
 			return -1;
 		}
-		printf("Data Sent To Server\n");
-		structlen = sizeof(serveraddr);
-		numbytes = recvfrom(sockfd,recvbuf,BUFSIZE,0, (struct sockaddr*)&serveraddr,&structlen);
-		if (0 > numbytes)
-		{
-			perror("Error in receiving data:\n");
-			return -1;
-		}
-		printf("Data Received from server %s:\n", inet_ntop(AF_INET,&serveraddr.sin_addr,
-				servername,sizeof(servername)));
-		// writing to stdout
-		write(1,recvbuf,numbytes); 
+		printf("Data Sent To Server, packet number: %i\n\n", i);
+		sleep(interval);
+		i++;
 	}
-
+	return 0;
 }
 
