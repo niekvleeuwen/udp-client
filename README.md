@@ -24,6 +24,3 @@ Available options
 
 -h / --help             Show this information
 ```
-
-## Contributing
-Everyone is welcome to create an issues in case of problems or feature request. You can also submit a pull request.
