@@ -5,7 +5,7 @@
 #include "client.h"
 #include <sensordata.h>
 
-int send_packet(FILE *, int, struct sockaddr * ,socklen_t, int interval);
+int send_packet(int, struct sockaddr * ,socklen_t, int interval);
 
 int main(int argc, char *argv[])
 {
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if(0 > sockfd) 
 	{
-		perror("socket");
+		perror("Error while creating socket");
 		exit(1);
 	}
 	
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 	
 	printf("Client Starting service...\n");
 
-	ret = send_packet(stdin,sockfd ,(struct sockaddr *)&serveraddress, sizeof(serveraddress), interval);
+	ret = send_packet(sockfd ,(struct sockaddr *)&serveraddress, sizeof(serveraddress), interval);
 	if (ret < 0)
 	{
 		printf("Client Exiting - Some error occured\n");
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 	exit(0);
 }
 
-int send_packet(FILE *fp, int sockfd , struct sockaddr *to ,socklen_t servaddrlength, int interval)
+int send_packet(int sockfd , struct sockaddr *to ,socklen_t servaddrlength, int interval)
 {
 	int ret;
 	SENSOR_DATA sensordata;
